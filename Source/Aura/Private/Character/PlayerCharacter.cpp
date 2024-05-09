@@ -7,7 +7,9 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Player/MainPlayerController.h"
 #include "Player/MainPlayerState.h"
+#include "UI/HUD/MainHUD.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -34,6 +36,14 @@ void APlayerCharacter::InitAbilityActorInfo()
 	MainPlayerState->GetAbilitySystemComponent()->InitAbilityActorInfo(MainPlayerState, this);
 	AbilitySystemComponent = MainPlayerState->GetAbilitySystemComponent();
 	AttributeSet = MainPlayerState->GetAttributeSet();
+
+	 if (AMainPlayerController* MainPlayerController = Cast<AMainPlayerController>(GetController()))
+	 {
+	 	if (AMainHUD* MainHUD = Cast<AMainHUD>(MainPlayerController->GetHUD()))
+	 	{
+	 		MainHUD->InitOverlay(MainPlayerController, MainPlayerState, AbilitySystemComponent, AttributeSet);
+	 	}
+	 }
 }
 
 void APlayerCharacter::PossessedBy(AController* NewController)
@@ -42,6 +52,8 @@ void APlayerCharacter::PossessedBy(AController* NewController)
 
 	// Init ability actor info for the server
 	InitAbilityActorInfo();
+
+	
 }
 
 void APlayerCharacter::OnRep_PlayerState()
