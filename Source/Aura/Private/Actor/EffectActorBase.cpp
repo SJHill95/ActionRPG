@@ -98,7 +98,5 @@ void AEffectActorBase::OnEndOverlap(AActor* TargetActor)
 		{
 			ActiveEffectHandles.FindAndRemoveChecked(Handle);
 		}
-		
-		
 	}
 }
