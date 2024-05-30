@@ -5,6 +5,7 @@
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "MainGameplayTags.h"
 #include "Actor/BaseProjectile.h"
 #include "Interaction/CombatInterface.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -44,8 +45,12 @@ void UProjectileSpell::SpawnProjectile(const FVector& ProjectileTargetLocation)
 			);
 
 		const UAbilitySystemComponent* SourceASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetAvatarActorFromActorInfo());
-
 		const FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageEffectClass, GetAbilityLevel(), SourceASC->MakeEffectContext());
+
+		const FMainGameplayTags GameplayTags = FMainGameplayTags::Get();
+		const float ScaledDamage = Damage.GetValueAtLevel(20);
+		//UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("FireBolt Damage: %f"), ScaledDamage), true, true, FLinearColor::Red, 3.f);
+		UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, GameplayTags.Damage, ScaledDamage);
 		Projectile->DamageEffectSpecHandle = SpecHandle;
 		
 		Projectile->FinishSpawning(SpawnTransform);
