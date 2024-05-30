@@ -7,6 +7,7 @@
 #include "GameplayTagContainer.h"
 #include "MainPlayerController.generated.h"
 
+class UDamageTextComponent;
 class UMainInputConfig;
 class UInputMappingContext;
 class UInputAction;
@@ -28,6 +29,9 @@ public:
 	
 
 	virtual void PlayerTick(float DeltaTime) override;
+
+	UFUNCTION(Client, Reliable)
+	void ShowDamageNumber(float DamageAmount, ACharacter* TargetCharacter);
 	
 protected:
 	virtual void BeginPlay() override;
@@ -82,4 +86,7 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USplineComponent> Spline;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UDamageTextComponent> DamageTextComponentClass;
 };

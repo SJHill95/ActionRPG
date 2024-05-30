@@ -9,8 +9,10 @@
 #include "NavigationSystem.h"
 #include "AbilitySystem/BaseAbilitySystemComponent.h"
 #include "Components/SplineComponent.h"
+#include "GameFramework/Character.h"
 #include "Input/MainInputComponent.h"
 #include "Interaction/EnemyInterface.h"
+#include "UI/Widget/DamageTextComponent.h"
 
 AMainPlayerController::AMainPlayerController()
 {
@@ -27,6 +29,20 @@ void AMainPlayerController::PlayerTick(float DeltaTime)
 
 	AutoRun();
 	
+}
+
+void AMainPlayerController::ShowDamageNumber_Implementation(float DamageAmount, ACharacter* TargetCharacter)
+{
+	if (IsValid(TargetCharacter) && DamageTextComponentClass)
+	{
+		UDamageTextComponent* DamageText = NewObject<UDamageTextComponent>(TargetCharacter, DamageTextComponentClass);
+		DamageText->RegisterComponent();
+		DamageText->AttachToComponent(TargetCharacter->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+		DamageText->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		DamageText->SetSimulatePhysics(true);
+		DamageText->SetEnableGravity(true);
+		DamageText->SetDamageText(DamageAmount);
+	}
 }
 
 void AMainPlayerController::AutoRun()
