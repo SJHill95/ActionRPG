@@ -83,7 +83,11 @@ int32 AEnemyCharacter::GetPlayerLevel()
 void AEnemyCharacter::Die()
 {
 	SetLifeSpan(LifeSpan);
-
+	if (MainAIController != nullptr)
+	{
+		MainAIController->GetBlackboardComponent()->SetValueAsBool(FName("bDead"), true);
+	}
+	
 	Super::Die();
 }
 
