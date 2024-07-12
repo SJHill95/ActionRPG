@@ -29,7 +29,7 @@ UWaitCooldownChange* UWaitCooldownChange::WaitForCooldownChange(UAbilitySystemCo
 
 void UWaitCooldownChange::EndTask()
 {
-	if (IsValid(ASC))
+	if (!IsValid(ASC))
 	{
 		return;
 	}

@@ -75,7 +75,7 @@ AActor* AEnemyCharacter::GetCombatTarget_Implementation() const
 	return CombatTarget;
 }
 
-int32 AEnemyCharacter::GetPlayerLevel()
+int32 AEnemyCharacter::GetPlayerLevel_Implementation()
 {
 	return Level;
 }

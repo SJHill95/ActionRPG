@@ -64,6 +64,11 @@ void ABaseCharacter::IncrementMinionCount_Implementation(int32 Amount)
 	MinionCount += Amount;
 }
 
+ECharacterClass ABaseCharacter::GetCharacterClass_Implementation()
+{
+	return CharacterClass;
+}
+
 void ABaseCharacter::MulticastHandleDeath_Implementation()
 {
 	UGameplayStatics::PlaySoundAtLocation(this, DeathSound, GetActorLocation(), GetActorRotation());
@@ -158,6 +163,7 @@ void ABaseCharacter::AddCharacterAbilities()
 	if (!HasAuthority()) return;
 
 	MainASC->AddCharacterAbilities(StartupAbilities);
+	MainASC->AddCharacterPassiveAbilities(StartupPassiveAbilities);
 	
 }
 
