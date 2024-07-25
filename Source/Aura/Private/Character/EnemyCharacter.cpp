@@ -80,15 +80,15 @@ int32 AEnemyCharacter::GetPlayerLevel_Implementation()
 	return Level;
 }
 
-void AEnemyCharacter::Die()
+void AEnemyCharacter::Die(const FVector& DeathImpulse)
 {
 	SetLifeSpan(LifeSpan);
 	if (MainAIController != nullptr)
 	{
 		MainAIController->GetBlackboardComponent()->SetValueAsBool(FName("bDead"), true);
 	}
-	
-	Super::Die();
+	HealthBar->SetVisibility(false);
+	Super::Die(DeathImpulse);
 }
 
 void AEnemyCharacter::BeginPlay()
@@ -156,6 +156,8 @@ void AEnemyCharacter::InitAbilityActorInfo()
 	{
 		InitializeDefaultAttributes();
 	}
+
+	OnAscRegistered.Broadcast(AbilitySystemComponent);
 }
 
 void AEnemyCharacter::InitializeDefaultAttributes() const

@@ -46,6 +46,7 @@ void APlayerCharacter::InitAbilityActorInfo()
 	Cast<UBaseAbilitySystemComponent>(MainPlayerState->GetAbilitySystemComponent())->AbilityActorInfoSet();
 	AbilitySystemComponent = MainPlayerState->GetAbilitySystemComponent();
 	AttributeSet = MainPlayerState->GetAttributeSet();
+	OnAscRegistered.Broadcast(AbilitySystemComponent);
 
 	 if (AMainPlayerController* MainPlayerController = Cast<AMainPlayerController>(GetController()))
 	 {
