@@ -12,7 +12,8 @@ class UNiagaraSystem;
 class UAbilitySystemComponent;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnASCRegistered, UAbilitySystemComponent*)
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDeathDelegate, AActor*, DeadActor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDeathSignature, AActor*, DeadActor);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnDamageSignature, float /*DamageAmount*/)
 
 USTRUCT(BlueprintType)
 struct FTaggedMontage
@@ -63,6 +64,10 @@ public:
 	
 	virtual void Die(const FVector& DeathImpulse) = 0;
 
+	virtual FOnDeathSignature& GetOnDeathDelegate() = 0;
+
+	virtual FOnDamageSignature& GetOnDamageDelegate() = 0;
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	bool IsDead() const;
 
@@ -87,7 +92,17 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	ECharacterClass GetCharacterClass();
 
-	virtual FOnASCRegistered GetOnAscRegisteredDelegate() = 0;
+	virtual FOnASCRegistered& GetOnAscRegisteredDelegate() = 0;
+	
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SetInShockLoop(bool bInLoop);
 
-	virtual FOnDeathDelegate GetOnDeathDelegate() = 0;
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	USkeletalMeshComponent* GetWeapon();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	bool IsBeingShocked() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void SetIsBeingShocked(bool bInShock);
 };

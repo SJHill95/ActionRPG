@@ -40,9 +40,8 @@ void ABaseProjectile::BeginPlay()
 	Super::BeginPlay();
 
 	SetLifeSpan(LifeSpan);
-
+	SetReplicateMovement(true);
 	Sphere->OnComponentBeginOverlap.AddDynamic(this, &ABaseProjectile::OnSphereOverlap);
-
 	LoopingSoundComponent = UGameplayStatics::SpawnSoundAttached(LoopingSound, GetRootComponent());
 }
 
@@ -53,12 +52,19 @@ void ABaseProjectile::OnHit()
 	if (LoopingSoundComponent)
 	{
 		LoopingSoundComponent->Stop();
+		LoopingSoundComponent->DestroyComponent();
 	}
 	bHit = true;
 }
 
 void ABaseProjectile::Destroyed()
 {
+	if (LoopingSoundComponent)
+	{
+		LoopingSoundComponent->Stop();
+		LoopingSoundComponent->DestroyComponent();
+	}
+	
 	if (!bHit && !HasAuthority())
 	{
 		OnHit();
@@ -70,6 +76,11 @@ void ABaseProjectile::Destroyed()
 void ABaseProjectile::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
                                       UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	if (DamageEffectParams.SourceAbilitySystemComponent == nullptr)
+	{
+		return;
+	}
+	
 	AActor* SourceAvatarActor = DamageEffectParams.SourceAbilitySystemComponent->GetAvatarActor();
 	if (SourceAvatarActor == OtherActor)
 	{

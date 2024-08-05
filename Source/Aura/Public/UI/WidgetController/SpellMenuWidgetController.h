@@ -73,10 +73,10 @@ private:
 	                                bShouldEnableEquipButton);
 
 	FSelectedAbility SelectedAbility = {FMainGameplayTags::Get().Abilities_None, FMainGameplayTags::Get().Abilities_Status_Locked};
+	
+	bool bWaitingForEquipSelection = false;
 
 	int32 CurrentSpellPoints = 0;
-
-	bool bWaitingForEquipSelection = false;
 
 	FGameplayTag SelectedSlot;
 };

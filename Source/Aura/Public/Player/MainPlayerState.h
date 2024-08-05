@@ -52,7 +52,7 @@ public:
 	
 	void AddToAttributePoints(const int32 InAttributePoints);
 	
-	FORCEINLINE int32 GetSpellPoints() const { return AttributePoints; }
+	FORCEINLINE int32 GetSpellPoints() const { return SpellPoints; }
 	
 	void SetSpellPoints(const int32 InSpellPoints);
 	

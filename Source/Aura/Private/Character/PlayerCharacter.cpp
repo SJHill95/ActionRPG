@@ -4,9 +4,11 @@
 #include "Character/PlayerCharacter.h"
 
 #include "AbilitySystemComponent.h"
+#include "MainGameplayTags.h"
 #include "NiagaraComponent.h"
 #include "AbilitySystem/BaseAbilitySystemComponent.h"
 #include "AbilitySystem/Data/LevelUpInfo.h"
+#include "AbilitySystem/Debuff/DebuffNiagaraComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -38,6 +40,42 @@ APlayerCharacter::APlayerCharacter()
 	CharacterClass = ECharacterClass::Elementalist;
 }
 
+void APlayerCharacter::OnRep_Stunned()
+{
+	if (UBaseAbilitySystemComponent* BaseASC = Cast<UBaseAbilitySystemComponent>(AbilitySystemComponent))
+	{
+		const FMainGameplayTags GameplayTags = FMainGameplayTags::Get();
+		FGameplayTagContainer BlockedTags;
+		BlockedTags.AddTag(GameplayTags.Player_Block_CursorTrace);
+		BlockedTags.AddTag(GameplayTags.Player_Block_InputHeld);
+		BlockedTags.AddTag(GameplayTags.Player_Block_InputPressed);
+		BlockedTags.AddTag(GameplayTags.Player_Block_InputReleased);
+		if (bIsStunned)
+		{
+			BaseASC->AddLooseGameplayTags(BlockedTags);
+			StunDebuffComponent->Activate();
+		}
+		else
+		{
+			BaseASC->RemoveLooseGameplayTags(BlockedTags);
+			StunDebuffComponent->Deactivate();
+		}
+	}
+}
+
+void APlayerCharacter::OnRep_Burned()
+{
+	if (bIsBurned)
+	{
+	
+		BurnDebuffComponent->Activate();
+	}
+	else
+	{
+		BurnDebuffComponent->Deactivate();
+	}
+}
+
 void APlayerCharacter::InitAbilityActorInfo()
 {
 	AMainPlayerState* MainPlayerState = GetPlayerState<AMainPlayerState>();
@@ -47,6 +85,7 @@ void APlayerCharacter::InitAbilityActorInfo()
 	AbilitySystemComponent = MainPlayerState->GetAbilitySystemComponent();
 	AttributeSet = MainPlayerState->GetAttributeSet();
 	OnAscRegistered.Broadcast(AbilitySystemComponent);
+	AbilitySystemComponent->RegisterGameplayTagEvent(FMainGameplayTags::Get().Debuff_Stun, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &APlayerCharacter::StunTagChanged);
 
 	 if (AMainPlayerController* MainPlayerController = Cast<AMainPlayerController>(GetController()))
 	 {
@@ -171,6 +210,22 @@ int32 APlayerCharacter::GetSpellPoints_Implementation() const
 	AMainPlayerState* MainPlayerState = GetPlayerState<AMainPlayerState>();
 	check(MainPlayerState);
 	return MainPlayerState->GetSpellPoints();
+}
+
+void APlayerCharacter::ShowMagicCircle_Implementation(UMaterialInterface* DecalMaterial, float Radius)
+{
+	if (AMainPlayerController* MainPlayerController = Cast<AMainPlayerController>(GetController()))
+	{
+		MainPlayerController->ShowMagicCircle(DecalMaterial);
+	}
+}
+
+void APlayerCharacter::HideMagicCircle_Implementation()
+{
+	if (AMainPlayerController* MainPlayerController = Cast<AMainPlayerController>(GetController()))
+	{
+		MainPlayerController->HideMagicCircle();
+	}
 }
 
 int32 APlayerCharacter::GetPlayerLevel_Implementation()

@@ -32,6 +32,9 @@ AEnemyCharacter::AEnemyCharacter()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 	GetCharacterMovement()->bUseControllerDesiredRotation = true;
+
+	InitialLifeSpan = 0.f;
+	BaseWalkSpeed = 250.f;
 }
 
 void AEnemyCharacter::PossessedBy(AController* NewController)
@@ -142,7 +145,7 @@ void AEnemyCharacter::HitReactTagChanged(const FGameplayTag CallBackTag, int32 N
 	GetCharacterMovement()->MaxWalkSpeed = bHitReacting ? 0.f : BaseWalkSpeed;
 	if (MainAIController && MainAIController->GetBlackboardComponent())
 	{
-		MainAIController->GetBlackboardComponent()->SetValueAsBool(FName("HitReacting"), bHitReacting);
+		MainAIController->GetBlackboardComponent()->SetValueAsBool(FName("bHitReacting"), bHitReacting);
 	}
 }
 
@@ -151,6 +154,7 @@ void AEnemyCharacter::InitAbilityActorInfo()
 	check (AbilitySystemComponent);
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
 	Cast<UBaseAbilitySystemComponent>(AbilitySystemComponent)->AbilityActorInfoSet();
+	AbilitySystemComponent->RegisterGameplayTagEvent(FMainGameplayTags::Get().Debuff_Stun, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AEnemyCharacter::StunTagChanged);
 
 	if (HasAuthority())
 	{
@@ -163,4 +167,14 @@ void AEnemyCharacter::InitAbilityActorInfo()
 void AEnemyCharacter::InitializeDefaultAttributes() const
 {
 	UMainAbilitySystemLibrary::InitializeDefaultAttributes(this, CharacterClass, Level, AbilitySystemComponent);
+}
+
+void AEnemyCharacter::StunTagChanged(const FGameplayTag CallBackTag, int32 NewCount)
+{
+	Super::StunTagChanged(CallBackTag, NewCount);
+
+	if (MainAIController && MainAIController->GetBlackboardComponent())
+	{
+		MainAIController->GetBlackboardComponent()->SetValueAsBool(FName("bStunned"), bIsStunned);
+	}
 }

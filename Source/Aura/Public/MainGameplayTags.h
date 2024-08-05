@@ -63,6 +63,10 @@
      FGameplayTag Debuff_Frequency;
      FGameplayTag Debuff_Duration;
 
+     FGameplayTag Buff_Protection;
+     FGameplayTag Buff_LifeSteal;
+     FGameplayTag Buff_ManaSteal;
+
      FGameplayTag Abilities_None;
      FGameplayTag Abilities_Attack;
      FGameplayTag Abilities_Summon;
@@ -78,10 +82,16 @@
      FGameplayTag Abilities_Type_None;
 
      FGameplayTag Abilities_Fire_FireBolt;
-     FGameplayTag Abilities_Lightning_LightningBolt;
+     FGameplayTag Abilities_Lightning_LightningBeam;
+     FGameplayTag Abilities_Arcane_ArcaneShards;
 
      FGameplayTag Cooldown_Fire_FireBolt;
-     FGameplayTag Cooldown_Lightning_LightningBolt;
+     FGameplayTag Cooldown_Lightning_LightningBeam;
+     FGameplayTag Cooldown_Arcane_ArcaneShards;
+
+     FGameplayTag Abilities_Passive_HaloOfProtection;
+     FGameplayTag Abilities_Passive_LifeSiphon;
+     FGameplayTag Abilities_Passive_ManaSiphon;
 
      FGameplayTag CombatSocket_Weapon;
      FGameplayTag CombatSocket_RightHand;
@@ -97,6 +107,11 @@
      TMap<FGameplayTag, FGameplayTag> DamageTypesToDebuffs;
      
      FGameplayTag Effects_HitReact;
+
+     FGameplayTag Player_Block_InputPressed;
+     FGameplayTag Player_Block_InputHeld;
+     FGameplayTag Player_Block_InputReleased;
+     FGameplayTag Player_Block_CursorTrace;
  
  private:
      static FMainGameplayTags GameplayTags;

@@ -7,7 +7,11 @@
 #include "MainGameplayTags.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
+#include "NiagaraFunctionLibrary.h"
 #include "AbilitySystem/BaseAbilitySystemComponent.h"
+#include "Actor/MagicCircle.h"
+#include "Aura/Aura.h"
+#include "Components/DecalComponent.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/Character.h"
 #include "Input/MainInputComponent.h"
@@ -28,7 +32,33 @@ void AMainPlayerController::PlayerTick(float DeltaTime)
 	CursorTrace();
 
 	AutoRun();
+
+	UpdateMagicCircleLocation();
 	
+}
+
+void AMainPlayerController::ShowMagicCircle(UMaterialInterface* DecalMaterial, float Radius)
+{
+	if (!IsValid(MagicCircle))
+	{
+		MagicCircle = GetWorld()->SpawnActor<AMagicCircle>(MagicCircleClass);
+		MagicCircle->SetTargetingRadius(Radius);
+		bShowMouseCursor = false;
+		if (DecalMaterial != nullptr)
+		{
+			MagicCircle->MagicCircleDecal->SetMaterial(0, DecalMaterial);
+		}
+	}
+	
+}
+
+void AMainPlayerController::HideMagicCircle()
+{
+	if (IsValid(MagicCircle))
+	{
+		MagicCircle->Destroy();
+		bShowMouseCursor = true;
+	}
 }
 
 void AMainPlayerController::ShowDamageNumber_Implementation(float DamageAmount, ACharacter* TargetCharacter, bool bBlockedHit, bool bCriticalHit)
@@ -62,7 +92,22 @@ void AMainPlayerController::AutoRun()
 
 void AMainPlayerController::CursorTrace()
 {
-	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
+	if (GetASC() && GetASC()->HasMatchingGameplayTag(FMainGameplayTags::Get().Player_Block_CursorTrace))
+	{
+		if (LastActor)
+		{
+			LastActor->UnHighlightActor();
+		}
+		if (ThisActor)
+		{
+			ThisActor->UnHighlightActor();
+		}
+		LastActor = nullptr;
+		ThisActor = nullptr;
+		return;
+	}
+	const ECollisionChannel TraceChannel = IsValid(MagicCircle) ? ECC_Camera : ECC_Visibility;
+	GetHitResultUnderCursor(TraceChannel, false, CursorHit);
 	if (!CursorHit.bBlockingHit) return;
 
 	LastActor = ThisActor;
@@ -84,15 +129,29 @@ void AMainPlayerController::CursorTrace()
 
 void AMainPlayerController::AbilityInputTagPressed(FGameplayTag InputTag)
 {
+	if (GetASC() && GetASC()->HasMatchingGameplayTag(FMainGameplayTags::Get().Player_Block_InputPressed))
+	{
+		return;
+	}
+	
 	if (InputTag.MatchesTagExact(FMainGameplayTags::Get().InputTag_LMB))
 	{
 		bTargeting = ThisActor ? true : false;
 		bAutoRunning = false;
 	}
+	if (GetASC())
+	{
+		GetASC()->AbilityInputTagPressed(InputTag);
+	}
 }
 
 void AMainPlayerController::AbilityInputTagReleased(FGameplayTag InputTag)
 {
+	if (GetASC() && GetASC()->HasMatchingGameplayTag(FMainGameplayTags::Get().Player_Block_InputReleased))
+	{
+		return;
+	}
+	
 	if (!InputTag.MatchesTagExact(FMainGameplayTags::Get().InputTag_LMB))
 	{
 		if (GetASC())
@@ -122,6 +181,10 @@ void AMainPlayerController::AbilityInputTagReleased(FGameplayTag InputTag)
 					bAutoRunning = true;
 				}
 			}
+			if (GetASC() && !GetASC()->HasMatchingGameplayTag(FMainGameplayTags::Get().Player_Block_InputPressed))
+			{
+				UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ClickNiagaraSystem, CachedDestination);
+			}
 		}
 		FollowTime = 0.f;
 		bTargeting = false;
@@ -130,6 +193,11 @@ void AMainPlayerController::AbilityInputTagReleased(FGameplayTag InputTag)
 
 void AMainPlayerController::AbilityInputTagHeld(FGameplayTag InputTag)
 {
+	if (GetASC() && GetASC()->HasMatchingGameplayTag(FMainGameplayTags::Get().Player_Block_InputHeld))
+	{
+		return;
+	}
+	
 	if (!InputTag.MatchesTagExact(FMainGameplayTags::Get().InputTag_LMB))
 	{
 		if (GetASC())
@@ -160,6 +228,14 @@ void AMainPlayerController::AbilityInputTagHeld(FGameplayTag InputTag)
 			const FVector WorldDirection = (CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal();
 			ControlledPawn->AddMovementInput(WorldDirection);
 		}
+	}
+}
+
+void AMainPlayerController::UpdateMagicCircleLocation()
+{
+	if (IsValid(MagicCircle))
+	{
+		MagicCircle->SetActorLocation(CursorHit.ImpactPoint);
 	}
 }
 
@@ -206,6 +282,11 @@ void AMainPlayerController::SetupInputComponent()
 
 void AMainPlayerController::Move(const FInputActionValue& InputActionValue)
 {
+	if (GetASC() && GetASC()->HasMatchingGameplayTag(FMainGameplayTags::Get().Player_Block_InputPressed))
+	{
+		return;
+	}
+	
 	const FVector2d InputAxisVector = InputActionValue.Get<FVector2d>();
 	const FRotator Rotation =  GetControlRotation();
 	const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);

@@ -10,9 +10,9 @@
 #include "GameFramework/Character.h"
 #include "MainGameplayTags.h"
 #include "AbilitySystem/MainAbilitySystemLibrary.h"
+#include "AbilitySystem/Abilities/HealEffect.h"
 #include "Interaction/CombatInterface.h"
 #include "Interaction/PlayerInterface.h"
-#include "Kismet/GameplayStatics.h"
 #include "Player/MainPlayerController.h"
 #include "GameplayEffectComponents/TargetTagsGameplayEffectComponent.h"
 
@@ -150,6 +150,11 @@ void UBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	{
 		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
 		UE_LOG(LogTemp, Warning, TEXT("Changed Health on %s, Health: %f"), *Props.TargetAvatarActor->GetName(), GetHealth());
+		if (GetHealth() == 0)
+		{
+			HandleDeath(Props);
+		}
+		
 	}
 
 	if (Data.EvaluatedData.Attribute == GetManaAttribute())
@@ -168,6 +173,16 @@ void UBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	}
 }
 
+void UBaseAttributeSet::HandleDeath(const FEffectProperties& Props)
+{
+	ICombatInterface* CombatInterface = Cast<ICombatInterface>(Props.TargetAvatarActor);
+	if (CombatInterface)
+	{
+		CombatInterface->Die(UMainAbilitySystemLibrary::GetDeathImpulse(Props.EffectContextHandle));
+	}
+	SendXPEvent(Props);
+}
+
 void UBaseAttributeSet::HandleIncomingDamage(const FEffectProperties& Props)
 {
 	const float LocalIncomingDamage = GetIncomingDamage();
@@ -180,23 +195,63 @@ void UBaseAttributeSet::HandleIncomingDamage(const FEffectProperties& Props)
 		const bool bFatal = NewHealth <= 0.f;
 		if (bFatal)
 		{
-			ICombatInterface* CombatInterface = Cast<ICombatInterface>(Props.TargetAvatarActor);
-			if (CombatInterface)
-			{
-				CombatInterface->Die(UMainAbilitySystemLibrary::GetDeathImpulse(Props.EffectContextHandle));
-			}
-			SendXPEvent(Props);
+			HandleDeath(Props);
 		}
 		else
 		{
-			FGameplayTagContainer TagContainer;
-			TagContainer.AddTag(FMainGameplayTags::Get().Effects_HitReact);
-			Props.TargetAbilitySystemComponent->TryActivateAbilitiesByTag(TagContainer);
+			if (Props.TargetCharacter->Implements<UCombatInterface>() && !ICombatInterface::Execute_IsBeingShocked(Props.TargetCharacter))
+			{
+				FGameplayTagContainer TagContainer;
+				TagContainer.AddTag(FMainGameplayTags::Get().Effects_HitReact);
+				Props.TargetAbilitySystemComponent->TryActivateAbilitiesByTag(TagContainer);
+			}
 
 			const FVector& KnockbackForce = UMainAbilitySystemLibrary::GetKnockbackForce(Props.EffectContextHandle);
 			if (!KnockbackForce.IsNearlyZero(1.f))
 			{
 				Props.TargetCharacter->LaunchCharacter(KnockbackForce, true, true);
+			}
+
+			// Life Steal
+			if (Props.SourceAbilitySystemComponent->HasMatchingGameplayTag(FMainGameplayTags::Get().Buff_LifeSteal))
+			{
+				int32 AbilityLevel = UMainAbilitySystemLibrary::GetAbilityLevel(Props.SourceAvatarActor, Props.SourceAbilitySystemComponent, FMainGameplayTags::Get().Abilities_Passive_LifeSiphon);
+				const UCharacterClassInfo* CharacterClassInfo = UMainAbilitySystemLibrary::GetCharacterClassInfo(Props.SourceAvatarActor);
+				const FRealCurve* LifeStealCurve = CharacterClassInfo->DamageCalculationCoefficients->FindCurve(FName("LifeSteal"), FString());
+				const float LifeStealPercentage = LifeStealCurve->Eval(AbilityLevel);
+				
+				FGameplayEffectContextHandle EffectContextHandle = Props.SourceAbilitySystemComponent->MakeEffectContext();
+				UE_LOG(LogTemp, Warning, TEXT("Life Steal: %f"),  LocalIncomingDamage * LifeStealPercentage);
+				UGameplayEffect* Effect = NewObject<UGameplayEffect>(GetTransientPackage(), FName("LifeSteal"));
+				Effect->DurationPolicy = EGameplayEffectDurationType::Instant;
+				const int32 Index = Effect->Modifiers.Num();
+				Effect->Modifiers.Add(FGameplayModifierInfo());
+				FGameplayModifierInfo& ModifierInfo = Effect->Modifiers[Index];
+				ModifierInfo.ModifierMagnitude = FScalableFloat(LocalIncomingDamage * LifeStealPercentage);
+				ModifierInfo.Attribute = UBaseAttributeSet::GetHealthAttribute();
+				const FGameplayEffectSpec* Spec = new FGameplayEffectSpec(Effect, EffectContextHandle, AbilityLevel);
+				Props.SourceAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec);
+			}
+
+			// Mana Steal
+			if (Props.SourceAbilitySystemComponent->HasMatchingGameplayTag(FMainGameplayTags::Get().Buff_ManaSteal))
+			{
+				int32 AbilityLevel = UMainAbilitySystemLibrary::GetAbilityLevel(Props.SourceAvatarActor, Props.SourceAbilitySystemComponent, FMainGameplayTags::Get().Abilities_Passive_ManaSiphon);
+				const UCharacterClassInfo* CharacterClassInfo = UMainAbilitySystemLibrary::GetCharacterClassInfo(Props.SourceAvatarActor);
+				const FRealCurve* ManaStealCurve = CharacterClassInfo->DamageCalculationCoefficients->FindCurve(FName("ManaSteal"), FString());
+				const float ManaStealPercentage = ManaStealCurve->Eval(AbilityLevel);
+				
+				FGameplayEffectContextHandle EffectContextHandle = Props.SourceAbilitySystemComponent->MakeEffectContext();
+				UE_LOG(LogTemp, Warning, TEXT("Mana Steal: %f"),  LocalIncomingDamage * ManaStealPercentage);
+				UGameplayEffect* Effect = NewObject<UGameplayEffect>(GetTransientPackage(), FName("ManaSteal"));
+				Effect->DurationPolicy = EGameplayEffectDurationType::Instant;
+				const int32 Index = Effect->Modifiers.Num();
+				Effect->Modifiers.Add(FGameplayModifierInfo());
+				FGameplayModifierInfo& ModifierInfo = Effect->Modifiers[Index];
+				ModifierInfo.ModifierMagnitude = FScalableFloat(LocalIncomingDamage * ManaStealPercentage);
+				ModifierInfo.Attribute = UBaseAttributeSet::GetManaAttribute();
+				const FGameplayEffectSpec* Spec = new FGameplayEffectSpec(Effect, EffectContextHandle, AbilityLevel);
+				Props.SourceAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec);
 			}
 		}
 			
@@ -228,10 +283,20 @@ void UBaseAttributeSet::Debuff(const FEffectProperties& Props)
 	Effect->Period = DebuffFrequency;
 	Effect->DurationMagnitude = FScalableFloat(DebuffDuration);
 
+	const FGameplayTag DebuffTag = GameplayTags.DamageTypesToDebuffs[DamageType];
 	UTargetTagsGameplayEffectComponent& AssetTagsComponent = Effect->FindOrAddComponent<UTargetTagsGameplayEffectComponent>();
 	FInheritedTagContainer InheritedTagContainer;
-	InheritedTagContainer.Added.AddTag(GameplayTags.DamageTypesToDebuffs[DamageType]);
+	InheritedTagContainer.Added.AddTag(DebuffTag);
 	AssetTagsComponent.SetAndApplyTargetTagChanges(InheritedTagContainer);
+	
+	if (DebuffTag.MatchesTagExact(FMainGameplayTags::Get().Debuff_Stun))
+	{
+		InheritedTagContainer.Added.AddTag(FMainGameplayTags::Get().Player_Block_CursorTrace);
+		InheritedTagContainer.Added.AddTag(FMainGameplayTags::Get().Player_Block_InputHeld);
+		InheritedTagContainer.Added.AddTag(FMainGameplayTags::Get().Player_Block_InputPressed);
+		InheritedTagContainer.Added.AddTag(FMainGameplayTags::Get().Player_Block_InputReleased);
+		AssetTagsComponent.SetAndApplyTargetTagChanges(InheritedTagContainer);
+	}
 	
 	Effect->StackingType = EGameplayEffectStackingType::AggregateBySource;
 	Effect->StackLimitCount = 1;
@@ -271,10 +336,17 @@ void UBaseAttributeSet::HandleIncomingXP(const FEffectProperties& Props)
 		const int32 NumLevelUps = NewLevel - CurrentLevel;
 		if(NumLevelUps > 0)
 		{
-			const int32 AttributePointsReward = IPlayerInterface::Execute_GetAttributePointReward(Props.SourceCharacter, CurrentLevel);
-			const int32 SpellPointsReward = IPlayerInterface::Execute_GetSpellPointsReward(Props.SourceCharacter, CurrentLevel);
-
 			IPlayerInterface::Execute_AddToPlayerLevel(Props.SourceCharacter, NumLevelUps);
+
+			int32 AttributePointsReward = 0;
+			int32 SpellPointsReward = 0;
+
+			for (int32 i = 0; i < NumLevelUps; i++)
+			{
+				SpellPointsReward += IPlayerInterface::Execute_GetSpellPointsReward(Props.SourceCharacter, CurrentLevel + i);
+				AttributePointsReward += IPlayerInterface::Execute_GetAttributePointReward(Props.SourceCharacter, CurrentLevel + i);
+			}
+			
 			IPlayerInterface::Execute_AddToAttributePoints(Props.SourceCharacter, AttributePointsReward);
 			IPlayerInterface::Execute_AddToSpellPoints(Props.SourceCharacter, SpellPointsReward);
 

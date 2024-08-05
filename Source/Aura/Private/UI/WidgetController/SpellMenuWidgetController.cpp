@@ -40,17 +40,18 @@ void USpellMenuWidgetController::BindCallbacksToDependencies()
 		}
 	);
 
-	GetMainPS()->OnSpellPointsChangedDelegate.AddLambda([this](int32 SpellPoints)
+	GetMainPS()->OnSpellPointsChangedDelegate.AddLambda([this](const int32 SpellPoints)
 		{
 			SpellPointsChangedDelegate.Broadcast(SpellPoints);
 			CurrentSpellPoints = SpellPoints;
+		
 			bool bEnableSpendPoints = false;
 			bool bEnableEquip = false;
 			ShouldEnableButtons(SelectedAbility.Status, CurrentSpellPoints, bEnableSpendPoints, bEnableEquip);
 			FString Description = FString();
 			FString NextLevelDescription = FString();
 			GetBaseASC()->GetDescriptionsByAbilityTag(SelectedAbility.Ability, Description, NextLevelDescription);
-			SpellSelectedDelegate.Broadcast(bEnableSpendPoints, bEnableEquip, Description, NextLevelDescription);
+			//SpellSelectedDelegate.Broadcast(bEnableSpendPoints, bEnableEquip, Description, NextLevelDescription);
 		}
 	);
 
@@ -67,6 +68,7 @@ void USpellMenuWidgetController::SpellSelected(const FGameplayTag& AbilityTag)
 	}
 	
 	const FMainGameplayTags GameplayTags = FMainGameplayTags::Get();
+	const int32 SpellPoints = GetMainPS()->GetSpellPoints();
 	FGameplayTag AbilityStatus;
 	
 	const bool bTagValid = AbilityTag.IsValid();
@@ -86,11 +88,12 @@ void USpellMenuWidgetController::SpellSelected(const FGameplayTag& AbilityTag)
 	SelectedAbility.Status = AbilityStatus;
 	bool bEnableSpendPoints = false;
 	bool bEnableEquip = false;
-	ShouldEnableButtons(AbilityStatus, CurrentSpellPoints, bEnableSpendPoints, bEnableEquip);
+	ShouldEnableButtons(AbilityStatus, SpellPoints, bEnableSpendPoints, bEnableEquip);
 	FString Description = FString();
 	FString NextLevelDescription = FString();
 	GetBaseASC()->GetDescriptionsByAbilityTag(AbilityTag, Description, NextLevelDescription);
 	SpellSelectedDelegate.Broadcast(bEnableSpendPoints, bEnableEquip, Description, NextLevelDescription);
+	
 }
 
 void USpellMenuWidgetController::SpendPointButtonPressed()
@@ -125,7 +128,7 @@ void USpellMenuWidgetController::EquipButtonPressed()
 	const FGameplayTag SelectedStatus = GetBaseASC()->GetStatusFromAbilityTag(SelectedAbility.Ability);
 	if (SelectedStatus.MatchesTagExact(FMainGameplayTags::Get().Abilities_Status_Equipped))
 	{
-		SelectedSlot = GetBaseASC()->GetInputTagFromAbilityTag(SelectedAbility.Ability);
+		SelectedSlot = GetBaseASC()->GetSlotFromAbilityTag(SelectedAbility.Ability);
 	}
 }
 
@@ -176,6 +179,9 @@ void USpellMenuWidgetController::ShouldEnableButtons(const FGameplayTag& Ability
                                                      bool& bShouldEnableSpellPointsButton, bool& bShouldEnableEquipButton)
 {
 	const FMainGameplayTags GameplayTags = FMainGameplayTags::Get();
+
+	bShouldEnableEquipButton = false;
+	bShouldEnableSpellPointsButton = false;
 
 	if (AbilityStatus.MatchesTagExact(GameplayTags.Abilities_Status_Equipped))
 	{

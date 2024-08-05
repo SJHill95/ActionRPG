@@ -7,6 +7,8 @@
 #include "GameplayTagContainer.h"
 #include "MainPlayerController.generated.h"
 
+class AMagicCircle;
+class UNiagaraSystem;
 class UDamageTextComponent;
 class UMainInputConfig;
 class UInputMappingContext;
@@ -27,12 +29,17 @@ class AURA_API AMainPlayerController : public APlayerController
 public:
 	AMainPlayerController();
 	
-
 	virtual void PlayerTick(float DeltaTime) override;
 
 	UFUNCTION(Client, Reliable)
 	void ShowDamageNumber(float DamageAmount, ACharacter* TargetCharacter, bool bBlockedHit, bool bCriticalHit);
-	
+
+	UFUNCTION(BlueprintCallable)
+	void ShowMagicCircle(UMaterialInterface* DecalMaterial = nullptr, float Radius = 150.f);
+
+	UFUNCTION(BlueprintCallable)
+	void HideMagicCircle();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -67,6 +74,8 @@ private:
 	void AbilityInputTagReleased(FGameplayTag InputTag);
 	void AbilityInputTagHeld(FGameplayTag InputTag);
 
+	void UpdateMagicCircleLocation();
+
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UMainInputConfig> InputConfig;
 
@@ -88,5 +97,14 @@ private:
 	TObjectPtr<USplineComponent> Spline;
 
 	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UNiagaraSystem> ClickNiagaraSystem;
+
+	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<UDamageTextComponent> DamageTextComponentClass;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AMagicCircle> MagicCircleClass;
+
+	UPROPERTY()
+	TObjectPtr<AMagicCircle> MagicCircle;
 };

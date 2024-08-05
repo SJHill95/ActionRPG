@@ -5,10 +5,12 @@
 #include "AbilitySystemComponent.h"
 #include "MainAbilityTypes.h"
 #include "MainGameplayTags.h"
+#include "AbilitySystem/BaseAbilitySystemComponent.h"
 #include "AbilitySystem/BaseAttributeSet.h"
 #include "AbilitySystem/MainAbilitySystemLibrary.h"
 #include "AbilitySystem/Data/CharacterClassInfo.h"
 #include "Interaction/CombatInterface.h"
+#include "Kismet/GameplayStatics.h"
 
 struct MainDamageStatics
 {
@@ -102,6 +104,13 @@ void UExecCalc_Damage::DetermineDebuff(const FGameplayEffectCustomExecutionParam
 	}
 }
 
+void UExecCalc_Damage::DetermineBuff(const FGameplayEffectCustomExecutionParameters& ExecutionParams,
+	const FGameplayEffectSpec& Spec, FAggregatorEvaluateParameters EvaluationParameters,
+	const TMap<FGameplayTag, FGameplayEffectAttributeCaptureDefinition>& InTagsToDefs) const
+{
+	const FMainGameplayTags& GameplayTags = FMainGameplayTags::Get();
+}
+
 void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecutionParameters& ExecutionParams,
                                               FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const
 {
@@ -138,6 +147,7 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	}
 
 	const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
+	FGameplayEffectContextHandle EffectContextHandle = Spec.GetContext();
 
 	const FGameplayTagContainer* SourceTags = Spec.CapturedSourceTags.GetAggregatedTags();
 	const FGameplayTagContainer* TargetTags = Spec.CapturedTargetTags.GetAggregatedTags();
@@ -159,12 +169,41 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 		const FGameplayEffectAttributeCaptureDefinition CaptureDef = TagsToCaptureDefs[ResistanceTag];
 
 		float DamageTypeValue = Spec.GetSetByCallerMagnitude(Pair.Key, false);
+		if (DamageTypeValue <= 0.f)
+		{
+			continue;
+		}
 
 		float Resistance = 0.f;
 		ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(CaptureDef, EvaluationParameters,Resistance);
 		Resistance = FMath::Clamp(Resistance, 0.f, 100.f);
 
 		DamageTypeValue *= ( 100.f - Resistance) / 100.f;
+
+		if (UMainAbilitySystemLibrary::IsRadialDamage(EffectContextHandle))
+		{
+			if (ICombatInterface* CombatInterface = Cast<ICombatInterface>(TargetAvatar))
+			{
+				CombatInterface->GetOnDamageDelegate().AddLambda([&](float DamageAmount)
+				{
+					DamageTypeValue = DamageAmount;
+				});
+			}
+		}
+
+		UGameplayStatics::ApplyRadialDamageWithFalloff(
+			TargetAvatar,
+			DamageTypeValue,
+			0.f,
+			UMainAbilitySystemLibrary::GetRadialDamageOrigin(EffectContextHandle),
+			UMainAbilitySystemLibrary::GetRadialDamageInnerRadius(EffectContextHandle),
+			UMainAbilitySystemLibrary::GetRadialDamageOuterRadius(EffectContextHandle),
+			1.f,
+			UDamageType::StaticClass(),
+			TArray<AActor*>(),
+			SourceAvatar,
+			nullptr
+			);
 		
 		Damage += DamageTypeValue;
 	}
@@ -174,10 +213,9 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().BlockChanceDef, EvaluationParameters, TargetBlockChance);
 	TargetBlockChance = FMath::Max<float>(TargetBlockChance, 0.f);
 	const bool bBlocked = FMath::RandRange(1.f, 100.f) < TargetBlockChance;
-
-	FGameplayEffectContextHandle EffectContextHandle = Spec.GetContext();
+	
 	UMainAbilitySystemLibrary::SetIsBlockedHit(EffectContextHandle, bBlocked);
-
+	
 	// If Block, halve damage
 	Damage = bBlocked ? Damage / 2 : Damage;
 	
@@ -202,6 +240,18 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	// Armor ignores a percentage of incoming damage
 	Damage *= (100 - EffectiveArmor * EffectiveArmorCoefficient) / 100.f;
 
+	// Check for passive Buffs
+	if (TargetTags->HasTagExact(FMainGameplayTags::Get().Buff_Protection))
+	{
+		const FGameplayTag& HaloOfProtectionTag = FMainGameplayTags::Get().Abilities_Passive_HaloOfProtection;
+		int32 AbilityLevel = UMainAbilitySystemLibrary::GetAbilityLevel(TargetAvatar, TargetASC, HaloOfProtectionTag);
+		const FRealCurve* ProtectionCurve = CharacterClassInfo->DamageCalculationCoefficients->FindCurve(FName("Protection"), FString());
+		const float ProtectionAmount = ProtectionCurve->Eval(AbilityLevel);
+		
+		//Damage -= (Damage *= ProtectionAmount);
+		Damage *= ProtectionAmount;
+	}
+	
 	// Crit hit chance
 	float SourceCritHitChance = 0.f;
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CriticalHitChanceDef, EvaluationParameters, SourceCritHitChance);

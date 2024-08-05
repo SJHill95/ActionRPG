@@ -6,19 +6,38 @@
 #include "MainGameplayTags.h"
 #include "AbilitySystem/BaseAbilitySystemComponent.h"
 #include "AbilitySystem/Debuff/DebuffNiagaraComponent.h"
+#include "AbilitySystem/Passive/PassiveNiagaraComponent.h"
 #include "Aura/Aura.h"
 #include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 ABaseCharacter::ABaseCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	const FMainGameplayTags& GameplayTags = FMainGameplayTags::Get();
 
 	BurnDebuffComponent = CreateDefaultSubobject<UDebuffNiagaraComponent>("BurnDebuffComponent");
 	BurnDebuffComponent->SetupAttachment(GetRootComponent());
 	BurnDebuffComponent->DebuffTag = GameplayTags.Debuff_Burn;
+	
+	StunDebuffComponent = CreateDefaultSubobject<UDebuffNiagaraComponent>("StunDebuffComponent");
+	StunDebuffComponent->SetupAttachment(GetRootComponent());
+	StunDebuffComponent->DebuffTag = GameplayTags.Debuff_Stun;
 
+	EffectAttachComponent =  CreateDefaultSubobject<USceneComponent>("EffectAttachPoint");
+	EffectAttachComponent->SetupAttachment(GetRootComponent());
+	
+	HaloOfProtectionNiagaraComponent = CreateDefaultSubobject<UPassiveNiagaraComponent>("HaloOfProtectionNiagaraComponent");
+	HaloOfProtectionNiagaraComponent->SetupAttachment(EffectAttachComponent);
+	
+	LifeSiphonNiagaraComponent = CreateDefaultSubobject<UPassiveNiagaraComponent>("LifeSiphonNiagaraComponent");
+	LifeSiphonNiagaraComponent->SetupAttachment(EffectAttachComponent);
+	
+	ManaSiphonNiagaraComponent = CreateDefaultSubobject<UPassiveNiagaraComponent>("ManaSiphonNiagaraComponent");
+	ManaSiphonNiagaraComponent->SetupAttachment(EffectAttachComponent);
+	
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetCapsuleComponent()->SetGenerateOverlapEvents(false);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
@@ -28,12 +47,37 @@ ABaseCharacter::ABaseCharacter()
 	Weapon = CreateDefaultSubobject<USkeletalMeshComponent>("Weapon");
 	Weapon->SetupAttachment(GetMesh(), FName("WeaponHandSocket"));
 	Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
 }
+
+void ABaseCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	EffectAttachComponent->SetWorldRotation(FRotator::ZeroRotator);
+}
+
+void ABaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABaseCharacter, bIsStunned);
+	DOREPLIFETIME(ABaseCharacter, bIsBurned);
+	DOREPLIFETIME(ABaseCharacter, bIsBeingShocked);
+	
+}
+
 
 UAbilitySystemComponent* ABaseCharacter::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+float ABaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	const float DamageTaken = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	OnDamageDelegate.Broadcast(DamageTaken);
+	return  DamageTaken;
 }
 
 void ABaseCharacter::Die(const FVector& DeathImpulse)
@@ -74,14 +118,34 @@ ECharacterClass ABaseCharacter::GetCharacterClass_Implementation()
 	return CharacterClass;
 }
 
-FOnASCRegistered ABaseCharacter::GetOnAscRegisteredDelegate()
+FOnASCRegistered& ABaseCharacter::GetOnAscRegisteredDelegate()
 {
 	return OnAscRegistered;
 }
 
-FOnDeathDelegate ABaseCharacter::GetOnDeathDelegate()
+FOnDeathSignature& ABaseCharacter::GetOnDeathDelegate()
 {
-	return OnDeath;
+	return OnDeathDelegate;
+}
+
+USkeletalMeshComponent* ABaseCharacter::GetWeapon_Implementation()
+{
+	return Weapon;
+}
+
+bool ABaseCharacter::IsBeingShocked_Implementation() const
+{
+	return bIsBeingShocked;
+}
+
+void ABaseCharacter::SetIsBeingShocked_Implementation(bool bInShock)
+{
+	bIsBeingShocked = bInShock;
+}
+
+FOnDamageSignature& ABaseCharacter::GetOnDamageDelegate()
+{
+	return OnDamageDelegate;
 }
 
 void ABaseCharacter::MulticastHandleDeath_Implementation(const FVector& DeathImpulse)
@@ -101,8 +165,23 @@ void ABaseCharacter::MulticastHandleDeath_Implementation(const FVector& DeathImp
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Dissolve();
 	bDead = true;
-	
-	OnDeath.Broadcast(this);
+	BurnDebuffComponent->Deactivate();
+	StunDebuffComponent->Deactivate();
+	OnDeathDelegate.Broadcast(this);
+}
+
+void ABaseCharacter::StunTagChanged(const FGameplayTag CallBackTag, int32 NewCount)
+{
+	bIsStunned = NewCount > 0;
+	GetCharacterMovement()->MaxWalkSpeed = bIsStunned ? 0.f : BaseWalkSpeed;
+}
+
+void ABaseCharacter::OnRep_Stunned()
+{
+}
+
+void ABaseCharacter::OnRep_Burned()
+{
 }
 
 void ABaseCharacter::BeginPlay()
