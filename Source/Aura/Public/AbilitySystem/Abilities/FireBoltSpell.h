@@ -21,7 +21,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SpawnProjectiles(const FVector& ProjectileTargetLocation, const FGameplayTag& SocketTag, bool bOverridePitch = false, float PitchOverride = 0.f, AActor* HomingTarget = nullptr);
 
-
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "FireBolt")

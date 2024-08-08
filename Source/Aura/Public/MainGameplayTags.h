@@ -82,10 +82,12 @@
      FGameplayTag Abilities_Type_None;
 
      FGameplayTag Abilities_Fire_FireBolt;
+     FGameplayTag Abilities_Fire_FireBlast;
      FGameplayTag Abilities_Lightning_LightningBeam;
      FGameplayTag Abilities_Arcane_ArcaneShards;
 
      FGameplayTag Cooldown_Fire_FireBolt;
+     FGameplayTag Cooldown_Fire_FireBlast;
      FGameplayTag Cooldown_Lightning_LightningBeam;
      FGameplayTag Cooldown_Arcane_ArcaneShards;
 
@@ -112,6 +114,8 @@
      FGameplayTag Player_Block_InputHeld;
      FGameplayTag Player_Block_InputReleased;
      FGameplayTag Player_Block_CursorTrace;
+
+     FGameplayTag GameplayCue_FireBlast;
  
  private:
      static FMainGameplayTags GameplayTags;

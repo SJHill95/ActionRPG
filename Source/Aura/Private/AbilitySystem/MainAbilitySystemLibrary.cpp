@@ -201,6 +201,47 @@ TArray<FVector> UMainAbilitySystemLibrary::EvenlyRotatedVectors(const FVector& F
 	return Vectors;
 }
 
+void UMainAbilitySystemLibrary::SetIsRadialDamageEffectParam(FDamageEffectParams& DamageEffectParams, bool bIsRadial, float InnerRadius, float OuterRadius, FVector Origin)
+{
+	DamageEffectParams.bIsRadialDamage = bIsRadial;
+	DamageEffectParams.RadialDamageInnerRadius = InnerRadius;
+	DamageEffectParams.RadialDamageOuterRadius = OuterRadius;
+	DamageEffectParams.RadialDamageOrigin = Origin;
+}
+
+void UMainAbilitySystemLibrary::SetKnockbackDirection(FDamageEffectParams& DamageEffectParams, FVector KnockbackDirection, float Magnitude)
+{
+	KnockbackDirection.Normalize();
+	if (Magnitude == 0.f)
+	{
+		DamageEffectParams.KnockbackForce = KnockbackDirection * DamageEffectParams.KnockbackForceMagnitude;
+	}
+	else
+	{
+		DamageEffectParams.KnockbackForce = KnockbackDirection * Magnitude;
+	}
+	
+}
+
+void UMainAbilitySystemLibrary::SetDeathImpulseDirection(FDamageEffectParams& DamageEffectParams, FVector ImpulseDirection, float Magnitude)
+{
+	ImpulseDirection.Normalize();
+	if (Magnitude == 0.f)
+	{
+		DamageEffectParams.DeathImpulse = ImpulseDirection * DamageEffectParams.DeathImpulseMagnitude;
+	}
+	else
+	{
+		DamageEffectParams.DeathImpulse = ImpulseDirection * Magnitude;
+	}
+
+}
+
+void UMainAbilitySystemLibrary::SetTargetEffectParamsASC(FDamageEffectParams& DamageEffectParams, UAbilitySystemComponent* InASC)
+{
+	DamageEffectParams.TargetAbilitySystemComponent = InASC;
+}
+
 UCharacterClassInfo* UMainAbilitySystemLibrary::GetCharacterClassInfo(const UObject* WorldContextObject)
 {
 	const AMainGameModeBase* MainGameMode = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(WorldContextObject));
