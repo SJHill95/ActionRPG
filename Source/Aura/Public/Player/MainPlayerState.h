@@ -13,6 +13,7 @@ class UAbilitySystemComponent;
 
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPlayerStatChanged, int32 /*StatValue*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLevelChanged, int32 /*StatValue*/, bool /*bLevelUp*/);
 
 /**
  * 
@@ -37,7 +38,7 @@ public:
 	FORCEINLINE int32 GetPlayerLevel() const { return Level; }
 
 	void SetLevel(const int32 InLevel);
-
+	
 	void AddToLevel(const int32 InLevel);
 
 	FORCEINLINE int32 GetXP() const { return XP; }
@@ -58,7 +59,7 @@ public:
 	
 	void AddToSpellPoints(const int32 InSpellPoints);
 	
-	FOnPlayerStatChanged OnLevelChangedDelegate;
+	FOnLevelChanged OnLevelChangedDelegate;
 
 	FOnPlayerStatChanged OnXPChangedDelegate;
 
@@ -79,7 +80,7 @@ private:
 	int32 Level = 1;
 
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_XP)
-	int32 XP = 1;
+	int32 XP = 0;
 
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_AttributePoints)
 	int32 AttributePoints = 0;

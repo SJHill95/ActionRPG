@@ -4,8 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/Data/CharacterClassInfo.h"
+#include "Aura/Aura.h"
 #include "Character/BaseCharacter.h"
 #include "Interaction/EnemyInterface.h"
+#include "Interaction/HighlightInterface.h"
 #include "UI/WidgetController/OverlayWidgetController.h"
 #include "EnemyCharacter.generated.h"
 
@@ -16,7 +18,7 @@ class UWidgetComponent;
  * 
  */
 UCLASS()
-class AURA_API AEnemyCharacter : public ABaseCharacter, public IEnemyInterface
+class AURA_API AEnemyCharacter : public ABaseCharacter, public IEnemyInterface, public IHighlightInterface
 {
 	GENERATED_BODY()
 
@@ -25,9 +27,13 @@ public:
 
 	virtual void PossessedBy(AController* NewController) override;
 
+	/** Highlight Interface */
+	virtual void HighlightActor_Implementation() override;
+	virtual void UnHighlightActor_Implementation() override;
+	virtual void SetMoveToLocation_Implementation(FVector& OutDestination) override;
+	/** end Highlight Interface */
+
 	/** Enemy Interface */
-	virtual void HighlightActor() override;
-	virtual void UnHighlightActor() override;
 	virtual void SetCombatTarget_Implementation(AActor* InCombatTarget) override;
 	virtual AActor* GetCombatTarget_Implementation() const override;
 	/** end Enemy Interface */
@@ -35,7 +41,6 @@ public:
 	/** Combat Interface */
 	virtual int32 GetPlayerLevel_Implementation() override;
 	virtual void Die(const FVector& DeathImpulse) override;
-	
 	/** end Combat Interface */
 	
 	UPROPERTY(BlueprintAssignable)
@@ -46,6 +51,8 @@ public:
 
 	void HitReactTagChanged(const FGameplayTag CallBackTag, int32 NewCount);
 
+	void SetLevel(int32 InLevel) { Level = InLevel; }
+
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	bool bHitReacting = false;
 	
@@ -54,6 +61,9 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, Category = "Combat")
 	TObjectPtr<AActor> CombatTarget;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Combat")
+	bool bTargetDead;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -75,5 +85,8 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<AMainAIController> MainAIController;
+
+	UPROPERTY(EditDefaultsOnly)
+	int32 CustomDepthStencilOverride = CUSTOM_DEPTH_RED;
 	
 };

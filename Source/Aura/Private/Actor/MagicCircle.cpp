@@ -6,6 +6,7 @@
 #include "Components/DecalComponent.h"
 #include "Components/SphereComponent.h"
 #include "Interaction/EnemyInterface.h"
+#include "Interaction/HighlightInterface.h"
 
 AMagicCircle::AMagicCircle()
 {
@@ -18,8 +19,6 @@ AMagicCircle::AMagicCircle()
 	
 	MagicCircleDecal = CreateDefaultSubobject<UDecalComponent>("MagicCircleDecal");
 	MagicCircleDecal->SetupAttachment(GetRootComponent());
-
-	
 	
 }
 
@@ -41,18 +40,18 @@ void AMagicCircle::BeginPlay()
 void AMagicCircle::OnTargetingBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (IEnemyInterface* Target = Cast<IEnemyInterface>(OtherActor))
+	if (IsValid(OtherActor) && OtherActor->Implements<UHighlightInterface>() && OtherActor->Implements<UEnemyInterface>())
 	{
-		Target->HighlightActor();
+		IHighlightInterface::Execute_HighlightActor(OtherActor);
 	}
 }
 
 void AMagicCircle::OnTargetingEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (IEnemyInterface* Target = Cast<IEnemyInterface>(OtherActor))
+	if (IsValid(OtherActor) && OtherActor->Implements<UHighlightInterface>() && OtherActor->Implements<UEnemyInterface>())
 	{
-		Target->UnHighlightActor();
+		IHighlightInterface::Execute_UnHighlightActor(OtherActor);
 	}
 }
 

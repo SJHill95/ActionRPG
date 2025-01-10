@@ -7,11 +7,17 @@
 #include "MainGameplayTags.h"
 #include "NiagaraComponent.h"
 #include "AbilitySystem/BaseAbilitySystemComponent.h"
+#include "AbilitySystem/BaseAttributeSet.h"
+#include "AbilitySystem/MainAbilitySystemLibrary.h"
+#include "AbilitySystem/Data/AbilityInfo.h"
 #include "AbilitySystem/Data/LevelUpInfo.h"
 #include "AbilitySystem/Debuff/DebuffNiagaraComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Game/LoadScreenSaveGame.h"
+#include "Game/MainGameModeBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Player/MainPlayerController.h"
 #include "Player/MainPlayerState.h"
 #include "UI/HUD/MainHUD.h"
@@ -94,8 +100,6 @@ void APlayerCharacter::InitAbilityActorInfo()
 	 		MainHUD->InitOverlay(MainPlayerController, MainPlayerState, AbilitySystemComponent, AttributeSet);
 	 	}
 	 }
-
-	InitializeDefaultAttributes();
 }
 
 void APlayerCharacter::PossessedBy(AController* NewController)
@@ -104,9 +108,51 @@ void APlayerCharacter::PossessedBy(AController* NewController)
 
 	// Init ability actor info for the server
 	InitAbilityActorInfo();
-	AddCharacterAbilities();
+	LoadProgress();
 	
+	if (AMainGameModeBase* MainGameMode = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(this)))
+	{
+		MainGameMode->LoadWorldState(GetWorld());
+	}
 }
+
+void APlayerCharacter::LoadProgress()
+{
+	AMainGameModeBase* MainGameMode = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(this));
+
+	if (MainGameMode)
+	{
+		ULoadScreenSaveGame* SaveData = MainGameMode->RetrieveInGameSaveData();
+		if (SaveData == nullptr)
+		{
+			return;
+		}
+		
+		if (SaveData->bFirstTimeLoadIn)
+		{
+			InitializeDefaultAttributes();
+			AddCharacterAbilities();
+		}
+		else
+		{
+			if (UBaseAbilitySystemComponent* BaseASC = Cast<UBaseAbilitySystemComponent>(AbilitySystemComponent))
+			{
+				BaseASC->AddCharacterAbilitiesFromSavedData(SaveData);
+			}
+			
+			if (AMainPlayerState* MainPlayerState = Cast<AMainPlayerState>(GetPlayerState()))
+			{
+				MainPlayerState->SetLevel(SaveData->PlayerLevel);
+				MainPlayerState->SetXP(SaveData->XP);
+				MainPlayerState->SetAttributePoints(SaveData->AttributePoints);
+				MainPlayerState->SetSpellPoints(SaveData->SpellPoints);
+			}
+			
+			UMainAbilitySystemLibrary::InitializeDefaultAttributesFromSaveData(this, AbilitySystemComponent, SaveData);
+		}
+	}
+}
+
 
 void APlayerCharacter::OnRep_PlayerState()
 {
@@ -228,9 +274,84 @@ void APlayerCharacter::HideMagicCircle_Implementation()
 	}
 }
 
+void APlayerCharacter::SaveProgress_Implementation(const FName& CheckpointTag)
+{
+	AMainGameModeBase* MainGameMode = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(this));
+
+	if (MainGameMode)
+	{
+		ULoadScreenSaveGame* SaveData = MainGameMode->RetrieveInGameSaveData();
+		if (SaveData == nullptr)
+		{
+			return;
+		}
+		SaveData->PlayerStartTag = CheckpointTag;
+
+		if (AMainPlayerState* MainPlayerState = Cast<AMainPlayerState>(GetPlayerState()))
+		{
+			SaveData->PlayerLevel = MainPlayerState->GetPlayerLevel();
+			SaveData->XP = MainPlayerState->GetXP();
+			SaveData->AttributePoints = MainPlayerState->GetAttributePoints();
+			SaveData->SpellPoints = MainPlayerState->GetSpellPoints();
+		}
+		SaveData->Strength = UBaseAttributeSet::GetStrengthAttribute().GetNumericValue(GetAttributeSet());
+		SaveData->Intelligence = UBaseAttributeSet::GetIntelligenceAttribute().GetNumericValue(GetAttributeSet());
+		SaveData->Resilience = UBaseAttributeSet::GetResilienceAttribute().GetNumericValue(GetAttributeSet());
+		SaveData->Vigor = UBaseAttributeSet::GetVigorAttribute().GetNumericValue(GetAttributeSet());
+
+		SaveData->bFirstTimeLoadIn = false;
+
+		if (!HasAuthority())
+		{
+			return;
+		}
+
+		UBaseAbilitySystemComponent* BaseASC = Cast<UBaseAbilitySystemComponent>(AbilitySystemComponent);
+		FForEachAbility SaveAbilityDelegate;
+		SaveData->SavedAbilities.Empty();
+		SaveAbilityDelegate.BindLambda([this, BaseASC, SaveData](const FGameplayAbilitySpec& AbilitySpec)
+		{
+			const FGameplayTag AbilityTag = BaseASC->GetAbilityTagFromSpec(AbilitySpec);
+			UAbilityInfo* AbilityInfo = UMainAbilitySystemLibrary::GetAbilityInfo(this);
+			FMainAbilityInfo Info = AbilityInfo->FindAbilityInfoForTag(AbilityTag);
+			
+			FSavedAbility SavedAbility;
+			SavedAbility.GameplayAbility = Info.Ability;
+			SavedAbility.AbilityLevel = AbilitySpec.Level;
+			SavedAbility.AbilitySlot = BaseASC->GetSlotFromAbilityTag(AbilityTag);
+			SavedAbility.AbilityStatus = BaseASC->GetStatusFromAbilityTag(AbilityTag);
+			SavedAbility.AbilityTag = AbilityTag;
+			SavedAbility.AbilityType = Info.AbilityType;
+
+			SaveData->SavedAbilities.AddUnique(SavedAbility);
+			
+		});
+		BaseASC->ForEachAbility(SaveAbilityDelegate);
+		
+		MainGameMode->SaveInGameProgressData(SaveData);
+	}
+}
+
 int32 APlayerCharacter::GetPlayerLevel_Implementation()
 {
 	const AMainPlayerState* MainPlayerState = GetPlayerState<AMainPlayerState>();
 	check(MainPlayerState);
 	return MainPlayerState->GetPlayerLevel();
+}
+
+void APlayerCharacter::Die(const FVector& DeathImpulse)
+{
+	Super::Die(DeathImpulse);
+
+	FTimerDelegate DeathTimerDelegate;
+	DeathTimerDelegate.BindLambda([this]()
+	{
+		AMainGameModeBase* MainGM = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(this));
+		if (MainGM)
+		{
+			MainGM->PlayerDied(this);
+		}
+	});
+	GetWorldTimerManager().SetTimer(DeathTimer, DeathTimerDelegate, DeathTime, false);
+	Camera->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 }

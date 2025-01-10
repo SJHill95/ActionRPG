@@ -34,10 +34,17 @@ UMVVM_LoadSlot* UMVVM_LoadScreen::GetLoadSlotViewModelByIndex(int32 Index) const
 void UMVVM_LoadScreen::NewSlotButtonPressed(int32 Slot, const FString& EnteredName)
 {
 	AMainGameModeBase* MainGameMode = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(this));
-
+	if (!IsValid(MainGameMode))
+	{
+		GEngine->AddOnScreenDebugMessage(1, 15.f, FColor::Emerald, FString("Please switch to single player"));
+		return;
+	}
 	LoadSlots[Slot]->SetMapName(MainGameMode->DefaultMapName);
 	LoadSlots[Slot]->SetPlayerName(EnteredName);
+	LoadSlots[Slot]->SetPlayerLevel(1);
 	LoadSlots[Slot]->SlotStatus = Taken;
+	LoadSlots[Slot]->PlayerStartTag = MainGameMode->DefaultPlayerStartTag;
+	LoadSlots[Slot]->MapAssetName = MainGameMode->DefaultMap.ToSoftObjectPath().GetAssetName();
 
 	MainGameMode->SaveSlotData(LoadSlots[Slot], Slot);
 	LoadSlots[Slot]->InitializeSlot();
@@ -84,6 +91,16 @@ void UMVVM_LoadScreen::DeleteButtonPressed()
 
 void UMVVM_LoadScreen::PlayButtonPressed()
 {
+	if (UMainGameInstance* MainGameInstance = Cast<UMainGameInstance>(UGameplayStatics::GetGameInstance(this)))
+	{
+		if (IsValid(SelectedSlot))
+		{
+			MainGameInstance->PlayerStartTag = SelectedSlot->PlayerStartTag;
+			MainGameInstance->LoadSlotName = SelectedSlot->GetLoadSlotName();
+			MainGameInstance->LoadSlotIndex = SelectedSlot->GetSlotIndex();
+		}
+	}
+	
 	if (AMainGameModeBase* MainGameMode = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(this)))
 	{
 		if (IsValid(SelectedSlot))
@@ -96,13 +113,19 @@ void UMVVM_LoadScreen::PlayButtonPressed()
 void UMVVM_LoadScreen::LoadData()
 {
 	AMainGameModeBase* MainGameMode = Cast<AMainGameModeBase>(UGameplayStatics::GetGameMode(this));
+	if (!IsValid(MainGameMode))
+	{
+		return;
+	}
 	for (const TTuple<int32, UMVVM_LoadSlot*> LoadSlot : LoadSlots)
 	{
 		ULoadScreenSaveGame* SaveObject = MainGameMode->GetSaveSlotData(LoadSlot.Value->GetLoadSlotName(), LoadSlot.Key);
 
 		LoadSlot.Value->SlotStatus = SaveObject->SaveSlotStatus;
 		LoadSlot.Value->SetPlayerName(SaveObject->PlayerName);
+		LoadSlot.Value->SetPlayerLevel(SaveObject->PlayerLevel);
 		LoadSlot.Value->InitializeSlot();
 		LoadSlot.Value->SetMapName(SaveObject->MapName);
+		LoadSlot.Value->PlayerStartTag = SaveObject->PlayerStartTag;
 	}
 }

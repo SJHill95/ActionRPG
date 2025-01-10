@@ -82,6 +82,8 @@ public:
 	UFUNCTION()
 	virtual void OnRep_Burned();
 
+	void SetCharacterClass(ECharacterClass InClass) { CharacterClass = InClass; }
+
 protected:
 	virtual void BeginPlay() override;
 	
@@ -119,6 +121,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attributes")
 	TSubclassOf<UGameplayEffect> DefaultVitalAttributes;
 
+	UPROPERTY(BlueprintReadOnly)
 	bool bDead = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")

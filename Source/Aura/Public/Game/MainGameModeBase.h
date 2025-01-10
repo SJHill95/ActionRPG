@@ -33,9 +33,21 @@ public:
 
 	ULoadScreenSaveGame* GetSaveSlotData(const FString& SlotName, int32 SlotIndex) const;
 
+	void SaveWorldState(UWorld* World, const FString& DestinationMapAssetName = FString("")) const;
+
+	void LoadWorldState(UWorld* World) const;
+
 	void TravelToMap(UMVVM_LoadSlot* Slot);
 
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+
+	ULoadScreenSaveGame* RetrieveInGameSaveData();
+
+	void SaveInGameProgressData(ULoadScreenSaveGame* SaveObject);
+
+	FString GetMapNameFromMapAssetName(const FString& MapAssetName) const;
+
+	void PlayerDied(ACharacter* DeadCharacter);
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<USaveGame> LoadScreenSaveGameClass;

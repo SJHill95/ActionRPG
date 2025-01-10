@@ -8,7 +8,6 @@
 #include "AbilitySystem/BaseAttributeSet.h"
 #include "AbilitySystem/MainAbilitySystemLibrary.h"
 #include "AI/MainAIController.h"
-#include "Aura/Aura.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Components/WidgetComponent.h"
@@ -33,6 +32,11 @@ AEnemyCharacter::AEnemyCharacter()
 	bUseControllerRotationRoll = false;
 	GetCharacterMovement()->bUseControllerDesiredRotation = true;
 
+	GetMesh()->SetCustomDepthStencilValue(CustomDepthStencilOverride);
+	GetMesh()->MarkRenderStateDirty();
+	Weapon->SetCustomDepthStencilValue(CustomDepthStencilOverride);
+	Weapon->MarkRenderStateDirty();
+
 	InitialLifeSpan = 0.f;
 	BaseWalkSpeed = 250.f;
 }
@@ -54,18 +58,21 @@ void AEnemyCharacter::PossessedBy(AController* NewController)
 	
 }
 
-void AEnemyCharacter::HighlightActor()
+void AEnemyCharacter::HighlightActor_Implementation()
 {
 	GetMesh()->SetRenderCustomDepth(true);
-	GetMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
 	Weapon->SetRenderCustomDepth(true);
-	Weapon->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
 }
 
-void AEnemyCharacter::UnHighlightActor()
+void AEnemyCharacter::UnHighlightActor_Implementation()
 {
 	GetMesh()->SetRenderCustomDepth(false);
 	Weapon->SetRenderCustomDepth(false);
+}
+
+void AEnemyCharacter::SetMoveToLocation_Implementation(FVector& OutDestination)
+{
+	// Do not change OutDestination
 }
 
 void AEnemyCharacter::SetCombatTarget_Implementation(AActor* InCombatTarget)

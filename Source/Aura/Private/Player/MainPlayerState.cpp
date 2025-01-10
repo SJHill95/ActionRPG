@@ -36,13 +36,13 @@ UAbilitySystemComponent* AMainPlayerState::GetAbilitySystemComponent() const
 void AMainPlayerState::SetLevel(const int32 InLevel)
 {
 	Level = InLevel;
-	OnLevelChangedDelegate.Broadcast(Level);
+	OnLevelChangedDelegate.Broadcast(Level, false);
 }
 
 void AMainPlayerState::AddToLevel(const int32 InLevel)
 {
 	Level += InLevel;
-	OnLevelChangedDelegate.Broadcast(Level);
+	OnLevelChangedDelegate.Broadcast(Level, true);
 }
 
 void AMainPlayerState::SetXP(const int32 InXP)
@@ -83,7 +83,7 @@ void AMainPlayerState::AddToSpellPoints(const int32 InSpellPoints)
 
 void AMainPlayerState::OnRep_Level(int32 OldLevel)
 {
-	OnLevelChangedDelegate.Broadcast(Level);
+	OnLevelChangedDelegate.Broadcast(Level, true);
 }
 
 void AMainPlayerState::OnRep_XP(int32 OldXP)
